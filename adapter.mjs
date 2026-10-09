@@ -80,3 +80,16 @@ export function verifyHandoff(headId,cells,rows){
   if(rows.some(r=>r.purposeLabel!=='测试'||r.requestId!==requestId||r.requestVersion!==version||r.category!==category||r.kind!==kind||r.handler!==rows[0].handler||r.handoffCount!==1||r.handoffIds?.length!==1||r.handoffIds[0]!==headId))throw new Error('原记录与交接单不符，或已重复归单。');
   return rows.map(r=>({...r,batchId:headId,batchSource:'verified_handoff',handoffMemberIds:[...ids]}));
 }
+
+// SDK user IDs are compared only within this Base context; display names are not identity.
+export function selectionKey(row){return JSON.stringify([row.requestId,row.requestVersion,row.category,row.kind,row.handlerId]);}
+export function verifySelection(rows,userId){
+  if(!userId||!rows.length||new Set(rows.map(r=>r.recordId)).size!==rows.length)throw new Error('请勾选本次实际交接的物品，不能重复选择。');
+  for(const row of rows){
+    if(row.state!=='completed'||row.purposeLabel!=='测试'||row.handlerId!==userId||row.handoffCount!==0||!Number.isSafeInteger(row.requestVersion)||row.requestVersion<1||!Number.isSafeInteger(row.quantity)||row.quantity<1||!row.name||!row.requestId||!Number.isFinite(Date.parse(row.time)))throw new Error('所选记录已变化、已归单，或不是本人已办理的测试记录，请刷新后核对。');
+    if(selectionKey(row)!==selectionKey(rows[0]))throw new Error('同一张交接单需来自同一申请、同一版本、同一类办理；其他交接请另建一张。');
+  }
+  return rows;
+}
+export function selectionSnapshot(row){return JSON.stringify([row.recordId,selectionKey(row),row.name,row.quantity,row.time,row.handler,row.applicant,row.condition,row.note]);}
+export function sameMembers(a,b){return Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&new Set(a).size===a.length&&[...a].sort().every((id,i)=>id===[...b].sort()[i]);}
