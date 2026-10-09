@@ -38,14 +38,16 @@ export function groupActualRows(rows) {
     if (row.kind !== '出库失败' && row.quantity === 0) throw new Error('实际交接数量为0，请核对办理事实。');
     if (row.batchId) {
       required(row.batchId, '实际交接批次');
-      if (row.batchSource !== 'actual_handoff') throw new Error('申请版本等旧批次键不能用于实际交接合单。');
+      if (row.batchSource !== 'verified_handoff') throw new Error('申请版本等旧批次键不能用于实际交接合单。');
     }
     const key = JSON.stringify([row.requestId, row.kind, row.batchId || row.recordId]);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push({...row});
   }
   for (const items of groups.values()) {
-    for (const name of ['handler','time','applicant','agent','department','requestTime','purpose','fromStation','toStation','fromResponsible','toResponsible']) {
+    if(items[0].batchId){const ids=items.map(r=>r.recordId).sort();if(items.some(r=>!Array.isArray(r.handoffMemberIds)||JSON.stringify([...r.handoffMemberIds].sort())!==JSON.stringify(ids)))throw new Error('本次交接物品未全部取得，不能打印缺项单据。');}
+    else if(items.some(r=>r.time!==items[0].time))throw new Error('历史实际时间不一致。');
+    for (const name of ['handler','applicant','agent','department','requestTime','purpose','fromStation','toStation','fromResponsible','toResponsible']) {
       if (items.some(x => (x[name] ?? '') !== (items[0][name] ?? ''))) throw new Error(`同次交接的${name}不一致，请先核对来源。`);
     }
   }
@@ -59,14 +61,16 @@ export function renderActualBatch(items, {printedAt, printer, demo=false, test=f
   actualTime(printedAt, '打印时间');
   const first = groups[0][0], [title,timeLabel,quantityLabel] = kinds[first.kind];
   const heading = first.name + (items.length > 1 ? `等${items.length}项` : '');
-  const info = [['申请人',first.applicant],['所属部门',first.department],['申请时间',first.requestTime],['用途',first.purpose],[timeLabel,first.time],['实际经办人',first.handler],['代领人',first.agent],['原工位',first.fromStation],['原责任人',first.fromResponsible],['新工位',first.toStation],['新责任人',first.toResponsible]];
+  const times=items.map(r=>r.time).sort((a,b)=>Date.parse(a)-Date.parse(b));
+  const period=times[0]===times.at(-1)?first.time:`${humanTime(times[0])} 至 ${humanTime(times.at(-1))}`;
+  const info = [['申请人',first.applicant],['所属部门',first.department],['申请时间',first.requestTime],['用途',first.purpose],[timeLabel,period],['实际经办人',first.handler],['代领人',first.agent],['原工位',first.fromStation],['原责任人',first.fromResponsible],['新工位',first.toStation],['新责任人',first.toResponsible]];
   const cells = info.filter(([,v]) => v).map(([k,v]) => `<tr><th>${escape(k)}</th><td>${escape(humanTime(v))}</td></tr>`).join('');
   const totals = new Map();
   const blocks = items.map((row,index) => {
     const total = (totals.get(row.unit || `未登记单位的物品 ${index+1}`) || 0) + row.quantity;
     if (!Number.isSafeInteger(total)) throw new Error('实际数量汇总超出可精确表示范围。');
     totals.set(row.unit || `未登记单位的物品 ${index+1}`, total);
-    const details = [['型号',row.model],['识别信息',row.identity],['实物状况',row.condition],['说明',row.note]];
+    const details = [[timeLabel,row.time],['实际经办人',row.handler],['型号',row.model],['识别信息',row.identity],['实物状况',row.condition],['说明',row.note]];
     if (row.kind === '实际借出') details.push(['预计归还日期',row.expectedReturn]);
     return `<tbody class="item"><tr class="section"><th colspan="4">物品明细 ${index+1}</th></tr><tr><th>名称</th><td class="name">${escape(row.name)}</td><th>实际数量</th><td>${row.quantity}${escape(row.unit)}</td></tr>${details.filter(([,v])=>v).map(([k,v])=>`<tr><th>${escape(k)}</th><td colspan="3">${escape(humanTime(v))}</td></tr>`).join('')}</tbody>`;
   }).join('');
