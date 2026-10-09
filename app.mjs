@@ -1,6 +1,6 @@
 import {workspace,dashboard,DashboardState,SourceType,FieldType} from './vendor/sdk.mjs';
-import {sourceRow,sourceConfigs,timeISO,handoffFields,verifyHandoff,selectionKey,verifySelection,selectionSnapshot,sameMembers} from './adapter.mjs?v=10';
-import {groupActualRows,renderActualBatch} from './batch.mjs?v=10';
+import {sourceRow,sourceConfigs,timeISO,handoffFields,verifyHandoff,selectionKey,verifySelection,selectionSnapshot,sameMembers} from './adapter.mjs?v=11';
+import {groupActualRows,renderActualBatch} from './batch.mjs?v=11';
 const $=id=>document.getElementById(id);
 let epoch=0,groups=[],busy=false,saveBusy=false,selectionLocked=false,selectionBinding=null,candidates=[],selectionUser="";
 const selected=new Set();
