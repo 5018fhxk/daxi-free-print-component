@@ -1,6 +1,6 @@
 import {workspace,dashboard,DashboardState,SourceType,FieldType} from './vendor/sdk.mjs';
-import {sourceRow,sourceConfigs,timeISO,handoffFields,verifyHandoff,selectionKey,verifySelection,selectionSnapshot,sameMembers} from './adapter.mjs?v=9';
-import {groupActualRows,renderActualBatch} from './batch.mjs?v=9';
+import {sourceRow,sourceConfigs,timeISO,handoffFields,verifyHandoff,selectionKey,verifySelection,selectionSnapshot,sameMembers} from './adapter.mjs?v=10';
+import {groupActualRows,renderActualBatch} from './batch.mjs?v=10';
 const $=id=>document.getElementById(id);
 let epoch=0,groups=[],busy=false,saveBusy=false,selectionLocked=false,selectionBinding=null,candidates=[],selectionUser="";
 const selected=new Set();
@@ -105,15 +105,8 @@ async function inputBinding(binding){
   for(const [name,type] of [['本次交接',FieldType.Text],['选本次已办物品',FieldType.SingleLink],['创建人',FieldType.CreatedUser],['整理状态',FieldType.SingleSelect]])if(meta.find(f=>f.name===name)?.type!==type)throw new Error('选择清单字段类型不符，已停止保存。');
   const input={context:binding.context,table,fields};
   if(!await input.context.base.getPermission({entity:'Record',param:{tableId:table.id},type:'addable'}))throw new Error('当前账号不能新建交接选择清单，请搭建人检查此新表的权限。');
-  const checks=[];
-  for(const name of ['本次交接','选本次已办物品']){
-    const param={tableId:table.id,fieldId:fields[name]};
-    const editable=await input.context.base.getPermission({entity:'Field',param,type:'editable'});
-    let submittable;try{submittable=await input.context.base.getPermission({entity:'Field',param,type:'submittable'});}catch(e){submittable=null;}
-    checks.push({name,editable,submittable});
-  }
-  if(checks.some(c=>!c.editable))throw new Error('新清单权限待核对：'+checks.map(c=>`${c.name}（修改${c.editable?'允许':'不允许'}，新增填写${c.submittable===null?'未支持':c.submittable?'允许':'不允许'}）`).join('；'));
-
+  // This component ONLY creates a helper record; App creation permission differs from editing.
+  for(const name of ['本次交接','选本次已办物品'])if(!await input.context.base.getPermission({entity:'Field',param:{tableId:table.id,fieldId:fields[name]},type:'submittable'}))throw new Error('当前账号不能新建交接选择，请检查这张新清单的填写权限。');
   return input;
 }
 function selectionStatus(text){$('selection-status').textContent=text;}
