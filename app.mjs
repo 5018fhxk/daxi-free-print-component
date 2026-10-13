@@ -1,6 +1,6 @@
 import {workspace,dashboard,DashboardState,SourceType,FieldType} from './vendor/sdk.mjs';
-import {sourceRow,sourceConfigs,timeISO,handoffFields,verifyHandoff,selectionKey,verifySelection,selectionSnapshot,sameMembers} from './adapter.mjs?v=12';
-import {groupActualRows,renderActualBatch} from './batch.mjs?v=12';
+import {sourceRow,sourceConfigs,timeISO,handoffFields,verifyHandoff,selectionKey,verifySelection,selectionSnapshot,sameMembers} from './adapter.mjs?v=13';
+import {groupActualRows,renderActualBatch} from './batch.mjs?v=13';
 const $=id=>document.getElementById(id);
 let epoch=0,groups=[],busy=false,saveBusy=false,selectionLocked=false,selectionBinding=null,candidates=[],selectionUser="";
 const selected=new Set();
@@ -8,7 +8,33 @@ function conceal(text){$('paper').hidden=true;$('paper').replaceChildren();$('pr
 function fail(e){conceal(e.message||String(e));}
 async function permit(binding,entity,param,type='visible'){if(!await binding.context.base.getPermission({entity,...(param?{param}:{}),type}))throw new Error('当前账号没有查看或打印所需的权限。');}
 async function cell(binding,id,name,raw=false){const {table,fields}=binding;const fieldId=fields[name];if(!fieldId)return null;await permit(binding,'Cell',{tableId:table.id,recordId:id,fieldId});return raw?table.getCellValue(fieldId,id):table.getCellString(fieldId,id);}
-async function loadRow(binding,id){const {table,fields}=binding;await permit(binding,'Record',{tableId:table.id,recordId:id});const cells={};for(const name of binding.source.required)cells[name]=await cell(binding,id,name,binding.source.raw.includes(name));for(const name of binding.source.optional){const fieldId=fields[name];if(fieldId&&['已归入交接单数（后台）','实际交接单ID（后台）'].includes(name)){cells[name]=await cell(binding,id,name,binding.source.raw.includes(name));continue;}cells[name]=fieldId&&await binding.context.base.getPermission({entity:'Cell',param:{tableId:table.id,recordId:id,fieldId},type:'visible'})?await cell(binding,id,name,binding.source.raw.includes(name)):null;}return sourceRow(binding.sourceType,id,cells);}
+async function loadRow(binding,id){
+  const {table,fields}=binding;
+  await permit(binding,'Record',{tableId:table.id,recordId:id});
+  const cells={};
+  // Each row uses at most two in-flight fields; the outer row pool stays at four.
+  async function readFields(names,reader){
+    let cursor=0,stopped=false,error;
+    await Promise.all(Array.from({length:Math.min(2,names.length)},async()=>{
+      while(!stopped&&cursor<names.length){
+        const name=names[cursor++];
+        try{cells[name]=await reader(name);}catch(e){if(!stopped)error=e;stopped=true;}
+      }
+    }));
+    if(stopped)throw error;
+  }
+  await readFields(binding.source.required,name=>cell(binding,id,name,binding.source.raw.includes(name)));
+  await readFields(binding.source.optional,async name=>{
+    const fieldId=fields[name];
+    if(!fieldId)return null;
+    // Handoff membership fields remain mandatory when present; denial blocks this row.
+    if(['已归入交接单数（后台）','实际交接单ID（后台）'].includes(name))return cell(binding,id,name,binding.source.raw.includes(name));
+    if(!await binding.context.base.getPermission({entity:'Cell',param:{tableId:table.id,recordId:id,fieldId},type:'visible'}))return null;
+    // The field was just authorized for this read; do not repeat the same permission call.
+    return binding.source.raw.includes(name)?table.getCellValue(fieldId,id):table.getCellString(fieldId,id);
+  });
+  return sourceRow(binding.sourceType,id,cells);
+}
 async function connect(){const config=await dashboard.getConfig();const saved=config.customConfig;const sourceType=saved?.sourceType||'business',source=sourceConfigs[sourceType];if(!source)throw new Error('打印记录来源尚未配置。');if(!saved?.baseToken||!saved?.tableId)throw new Error('先由搭建人在组件设置中连接办理记录。');await dashboard.getData();const context=await workspace.getBitable(saved.baseToken);if(!context)throw new Error('应用没有授权此数据源。');const table=await context.base.getTableById(saved.tableId);const binding={context,table};await permit(binding,'Base',null,'printable');const meta=await table.getFieldMetaList();const fields=Object.fromEntries(meta.map(f=>[f.name,f.id]));if(source.required.some(n=>!fields[n]))throw new Error('当前表缺少实际办理所需字段。');return {...binding,fields,meta,sourceType,source,approvalTableId:saved.approvalTableId,handoffTableId:saved.handoffTableId,handoffInputTableId:saved.handoffInputTableId,handoffInputTableName:saved.handoffInputTableName,testEnvironment:saved.testEnvironment!==false};}
 async function handoffRows(binding,id){
   if(!binding.handoffTableId)throw new Error('此记录已归入交接单，请搭建人重新保存打印组件配置。');

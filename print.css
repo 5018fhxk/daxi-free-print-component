@@ -1,5 +1,51 @@
-*{box-sizing:border-box}body{margin:0;color:#171717;background:#f0f2f5;font:15px/1.6 "PingFang SC","Microsoft YaHei",sans-serif}nav{padding:16px;background:white;border-bottom:1px solid #ddd}nav p{margin:6px 0}button,select{font:inherit;padding:8px 12px;border-radius:6px;border:1px solid #bbb;margin:4px}button{color:white;background:#2464d5;border:0;cursor:pointer}button:disabled{background:#999;cursor:default}pre{white-space:pre-wrap;font-size:12px}details{font-size:12px;color:#666;margin-top:8px}.paper{margin:18px auto;padding:16mm;width:210mm;min-height:297mm;background:white}h1{text-align:center;font-size:24px;margin:0 0 25px}h1 small{display:block;font-size:20px;font-weight:500;margin-top:5px}h2{font-size:16px;text-align:center;border:1px solid #222;border-bottom:0;margin:20px 0 0;padding:7px}table{border-collapse:collapse;width:100%;table-layout:fixed}th,td{border:1px solid #222;padding:8px;overflow-wrap:anywhere;text-align:left;font-weight:normal}th{width:28%}.name{font-weight:600}.foot{font-size:11px;color:#555;margin-top:24px}tr{break-inside:avoid;page-break-inside:avoid}thead{display:table-header-group}[hidden]{display:none!important}@page{size:A4 portrait;margin:0}@media print{nav{display:none!important}body{background:white;font-size:11pt}.paper{width:auto;min-height:0;margin:0;padding:15mm}h1{font-size:18pt}h1 small{font-size:15pt}.foot{font-size:8pt}}@media screen and (max-width:800px){.paper{width:100%;padding:20px;min-height:0}}
-
-#handoff-selection{margin:16px 0;padding:12px;border:1px solid #d9e1ef;border-radius:10px}#handoff-selection h2{text-align:left;border:0;margin:0;padding:0}.choice{display:flex;gap:12px;align-items:center;padding:12px;border:1px solid #ddd;border-radius:8px;margin:8px 0;cursor:pointer}.choice input{width:24px;height:24px;flex-shrink:0}.choice strong,.choice span span{display:block}.choice:has(input:disabled){opacity:.55}#selection-status{overflow-wrap:anywhere}
-
-.selection-actions{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;background:white;padding:8px 0;border-bottom:1px solid #e4e8ef}.selection-actions button{min-height:48px;padding:12px 18px;margin:0}.selection-actions p{flex:1;margin:0}
+*{box-sizing:border-box}
+body{margin:0;color:#171717;background:#edf0f4;font:14px/1.5 "PingFang SC","Microsoft YaHei",sans-serif;overflow-x:auto}
+nav{padding:18px 24px;background:#fff;border-bottom:1px solid #d4dae3;min-width:780px}
+nav>strong{font-size:18px}nav p{margin:6px 0}
+button,select{font:inherit;padding:9px 14px;border-radius:6px;border:1px solid #aab3c0;margin:4px;min-height:40px}
+button{color:#fff;background:#2464d5;border:0;cursor:pointer}button:disabled{background:#999;cursor:default}
+#records{width:min(680px,65vw);max-width:100%}#print{font-weight:600;padding-inline:22px}
+pre{white-space:pre-wrap;font-size:12px}
+details{font-size:12px;color:#666;margin-top:8px}
+.desktop-hint{color:#546174;font-size:13px}
+.paper{margin:24px auto;padding:12mm;width:210mm;min-height:297mm;background:#fff;box-shadow:0 2px 14px #15284218;font-size:10.5pt;line-height:1.45}
+.document-heading{margin:0 0 12px}
+h1{text-align:center;font-size:19pt;line-height:1.35;margin:0;font-weight:600;overflow-wrap:anywhere}
+h1 small{display:block;font-size:14pt;font-weight:500;margin-top:2px}
+.print-meta{text-align:right;font-size:8.5pt;color:#454545;margin:8px 0 0}
+.demo{font-size:8.5pt;color:#555;border-bottom:1px solid #c6c6c6;margin:0 0 8px;padding-bottom:3px}
+table{border-collapse:collapse;border:1px solid #333;width:calc(100% - 2px);margin-left:1px;margin-right:1px;table-layout:fixed}
+th,td{border:1px solid #333;padding:5px 7px;overflow-wrap:anywhere;text-align:left;font-weight:normal;vertical-align:top}
+th{background:#fafafa}.meta{margin-bottom:9px}
+.section-heading{text-align:center;font-weight:600;background:#f4f4f4;padding:5px 7px}
+.name{font-weight:600;font-size:11pt}
+.item-index{width:5%;text-align:center;vertical-align:middle;color:#444;font-size:9pt}
+.item-main td,.item-main th{padding-top:5px;padding-bottom:4px}
+.quantity-label,.quantity{white-space:nowrap;vertical-align:middle}.quantity{font-weight:600}
+.item-identity{font-size:9pt;color:#444;margin-left:12px}
+.item-detail td{padding-top:4px;padding-bottom:5px;font-size:9pt;line-height:1.45}
+.item-fact{display:inline-block;margin-right:14px}.fact-label{color:#444}
+.item,.item-main,.item-detail,tr{break-inside:avoid;page-break-inside:avoid}
+thead{display:table-header-group}tfoot{display:table-row-group}
+.items tfoot th,.items tfoot td{font-weight:600;font-size:9.5pt}
+.events{margin-top:9px;font-size:9pt;line-height:1.4}
+.events td,.events th{padding:4px 7px}
+.event-actor{font-weight:500}.event-result{margin-left:10px}.events time{margin-left:14px;color:#444;white-space:nowrap}
+.foot{font-size:8.5pt;color:#555;margin:7px 0 0;line-height:1.4}
+[hidden]{display:none!important}
+@page{size:A4 portrait;margin:12mm}
+@media print{
+ nav{display:none!important}body{background:#fff;overflow:visible}
+ .paper{width:auto;min-height:0;margin:0;padding:0;box-shadow:none;font-size:10.5pt}
+ .document-heading,.meta{break-inside:avoid;page-break-inside:avoid}
+ thead{break-after:avoid;page-break-after:avoid}
+ th{background:transparent}.demo{color:#444}
+}
+#handoff-selection{margin:14px 0;padding:12px;border:1px solid #d9e1ef;border-radius:8px}
+#handoff-selection h2{font-size:15px;text-align:left;border:0;margin:0;padding:0}
+#selection-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px;margin:8px 0}
+.choice{display:flex;gap:10px;align-items:center;padding:10px;border:1px solid #ddd;border-radius:6px;cursor:pointer}
+.choice input{width:20px;height:20px;flex-shrink:0}.choice strong,.choice span span{display:block}
+.choice span span{font-size:13px;color:#536071}.choice:has(input:disabled){opacity:.55}#selection-status{overflow-wrap:anywhere}
+.selection-actions{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;padding:8px 0;border-bottom:1px solid #e4e8ef}
+.selection-actions button{min-height:42px;padding:10px 18px;margin:0}.selection-actions p{flex:1;margin:0}

@@ -1,6 +1,6 @@
 // 只接收已核实的历史办理快照；取数、岗位权限及实际批次生成由接入层负责。
 const escape = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-import {layouts as kinds} from './layouts.mjs';
+import {layouts as kinds} from './layouts.mjs?v=13';
 const humanTime = value => {
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value))) {
     return new Intl.DateTimeFormat('zh-CN', {timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23'}).format(new Date(value));
@@ -64,15 +64,31 @@ export function renderActualBatch(items, {printedAt, printer, demo=false, test=f
   const times=items.map(r=>r.time).sort((a,b)=>Date.parse(a)-Date.parse(b));
   const period=times[0]===times.at(-1)?first.time:`${humanTime(times[0])} 至 ${humanTime(times.at(-1))}`;
   const info = [['申请人',first.applicant],['所属部门',first.department],['申请时间',first.requestTime],['用途',first.purpose],[timeLabel,period],['实际经办人',first.handler],['代领人',first.agent],['原工位',first.fromStation],['原责任人',first.fromResponsible],['新工位',first.toStation],['新责任人',first.toResponsible]];
-  const cells = info.filter(([,v]) => v).map(([k,v]) => `<tr><th>${escape(k)}</th><td>${escape(humanTime(v))}</td></tr>`).join('');
+  // 共享信息横向排版；长用途独占一行，避免挤压日期及人员。
+  const shared = info.filter(([,v]) => v), metaRows = [];
+  let pending = null;
+  for (const entry of shared) {
+    const [key,value] = entry;
+    if (key === '用途') {
+      if (pending) { metaRows.push([pending]); pending = null; }
+      metaRows.push([entry]);
+    } else if (pending) { metaRows.push([pending,entry]); pending = null; }
+    else pending = entry;
+  }
+  if (pending) metaRows.push([pending]);
+  const cells = metaRows.map(entries => `<tr>${entries.map(([k,v]) => `<th>${escape(k)}</th><td${entries.length===1?' colspan="3"':''}>${escape(humanTime(v))}</td>`).join('')}</tr>`).join('');
   const totals = new Map();
   const blocks = items.map((row,index) => {
     const total = (totals.get(row.unit || `未登记单位的物品 ${index+1}`) || 0) + row.quantity;
     if (!Number.isSafeInteger(total)) throw new Error('实际数量汇总超出可精确表示范围。');
     totals.set(row.unit || `未登记单位的物品 ${index+1}`, total);
-    const details = [[timeLabel,row.time],['实际经办人',row.handler],['型号',row.model],['识别信息',row.identity],['实物状况',row.condition],['说明',row.note]];
+    const details = [[timeLabel,row.time],['实物状况',row.condition],['实际经办人',row.handler]];
     if (row.kind === '实际借出') details.push(['预计归还日期',row.expectedReturn]);
-    return `<tbody class="item"><tr class="section"><th colspan="4">物品明细 ${index+1}</th></tr><tr><th>名称</th><td class="name">${escape(row.name)}</td><th>实际数量</th><td>${row.quantity}${escape(row.unit)}</td></tr>${details.filter(([,v])=>v).map(([k,v])=>`<tr><th>${escape(k)}</th><td colspan="3">${escape(humanTime(v))}</td></tr>`).join('')}</tbody>`;
+    if (row.note) details.push(['说明',row.note]);
+    const identity = [['型号',row.model],['识别信息',row.identity]].filter(([,v])=>v).map(([k,v])=>`<span class="item-identity">${escape(k)}：${escape(v)}</span>`).join('');
+    const detailText = details.filter(([,v])=>v).map(([k,v])=>`<span class="item-fact"><span class="fact-label">${escape(k)}：</span>${escape(humanTime(v))}</span>`).join('');
+    // 每件固定两条表格行；实际时间、经办人、异常说明仍逐件保留。
+    return `<tbody class="item"><tr class="item-main"><td class="item-index" rowspan="2">${index+1}</td><td colspan="3"><strong class="name">${escape(row.name)}</strong>${identity}</td><th class="quantity-label">实际数量</th><td class="quantity">${row.quantity}${escape(row.unit)}</td></tr><tr class="item-detail"><td colspan="5">${detailText}</td></tr></tbody>`;
   }).join('');
   const history = events.map(event => {
     required(event.action,'记录动作'); required(event.actor,'记录实际人'); actualTime(event.time,'记录时间');
@@ -80,5 +96,5 @@ export function renderActualBatch(items, {printedAt, printer, demo=false, test=f
   }).sort((a,b)=>Date.parse(a.time)-Date.parse(b.time));
   const label=demo?'排版演示 · 人员、物品和交接均为合成样例，非业务证据':test||items.some(x=>x.purposeLabel==='测试')?'测试记录 · 虚拟验收，非正式交接凭证':'';
   const totalText=[...totals].map(([unit,q])=>unit.startsWith('未登记单位的物品 ')?`${escape(unit)}：${q}`:`${q}${escape(unit)}`).join('；');
-  return `${label?`<p class="demo">${escape(label)}</p>`:''}<h1>${escape(heading)}<small>${escape(title)}</small></h1><p class="print-meta">${printer?`打印人员：${escape(printer)}　`:''}打印时间：${escape(humanTime(printedAt))}</p><table class="meta"><tbody>${cells}</tbody></table><h2>本次办理详情</h2><table class="items"><colgroup><col style="width:16%"><col style="width:46%"><col style="width:20%"><col style="width:18%"></colgroup><thead><tr><th colspan="4">物品及本次实际交接</th></tr></thead>${blocks}</table><p>${escape(quantityLabel)}：${totalText}</p>${history.length?`<h2>审批与办理记录</h2><table class="events"><thead><tr><th>动作</th><th>实际人员</th><th>时间</th><th>意见或结果</th></tr></thead><tbody>${history.map(x=>`<tr><td>${escape(x.action)}</td><td>${escape(x.actor)}</td><td>${escape(humanTime(x.time))}</td><td>${escape(x.result)}</td></tr>`).join('')}</tbody></table>`:''}${notes.map(n=>`<p class="foot">${escape(n)}</p>`).join('')}<p class="foot">请核对以上物品和实际交接情况。</p>`;
+  return `${label?`<p class="demo">${escape(label)}</p>`:''}<header class="document-heading"><h1>${escape(heading)}<small>${escape(title)}</small></h1><p class="print-meta">${printer?`打印人员：${escape(printer)}　`:''}打印时间：${escape(humanTime(printedAt))}</p></header><table class="meta"><colgroup><col style="width:17%"><col style="width:33%"><col style="width:17%"><col style="width:33%"></colgroup><tbody>${cells}</tbody></table><table class="items"><colgroup><col style="width:5%"><col style="width:17%"><col style="width:33%"><col style="width:17%"><col style="width:14%"><col style="width:14%"></colgroup><thead><tr><th colspan="6" class="section-heading">物品及本次实际交接</th></tr></thead>${blocks}<tfoot><tr><th colspan="4">${escape(quantityLabel)}</th><td colspan="2">${totalText}</td></tr></tfoot></table>${history.length?`<table class="events"><colgroup><col style="width:20%"><col style="width:80%"></colgroup><thead><tr><th colspan="2" class="section-heading">审批与办理记录</th></tr></thead><tbody>${history.map(x=>`<tr><th>${escape(x.action)}</th><td><span class="event-actor">${escape(x.actor)}</span><span class="event-result">${escape(x.result)}</span><time>${escape(humanTime(x.time))}</time></td></tr>`).join('')}</tbody></table>`:''}${notes.map(n=>`<p class="foot">${escape(n)}</p>`).join('')}`;
 }
