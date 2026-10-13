@@ -1,6 +1,6 @@
 import {workspace,dashboard,DashboardState,SourceType,FieldType} from './vendor/sdk.mjs';
-import {sourceRow,sourceConfigs,timeISO,handoffFields,verifyHandoff,selectionKey,verifySelection,selectionSnapshot,sameMembers} from './adapter.mjs?v=13';
-import {groupActualRows,renderActualBatch} from './batch.mjs?v=13';
+import {sourceRow,sourceConfigs,timeISO,handoffFields,verifyHandoff,selectionKey,verifySelection,selectionSnapshot,sameMembers} from './adapter.mjs?v=14';
+import {groupActualRows,renderActualBatch} from './batch.mjs?v=14';
 const $=id=>document.getElementById(id);
 let epoch=0,groups=[],busy=false,saveBusy=false,selectionLocked=false,selectionBinding=null,candidates=[],selectionUser="";
 const selected=new Set();
@@ -119,6 +119,32 @@ async function recordIds(table,filter){
   let token;const ids=[];
   do{const page=await table.getRecordIdListByPage({pageSize:200,...(filter?{filter}:{}),...(token!==undefined?{pageToken:token}:{})});ids.push(...page.recordIds);if(!page.hasMore)return ids;if(page.pageToken===undefined||page.pageToken===token)throw new Error('记录分页未完成，请刷新核对。');token=page.pageToken;}while(true);
 }
+async function printableRecordIds(binding){
+  if(binding.sourceType!=='business')return recordIds(binding.table);
+  if(!Array.isArray(binding.meta))return recordIds(binding.table);
+  const fieldId=binding.fields?.['办理类型'];
+  if(typeof fieldId!=='string'||!fieldId)return recordIds(binding.table);
+  const field=binding.meta.find(f=>f?.id===fieldId&&f.name==='办理类型');
+  const kinds=['借出','归还','领用出库'];
+  if(field?.type!==FieldType.SingleSelect||!Array.isArray(field.property?.options))return recordIds(binding.table);
+  const optionIds=[];
+  for(const kind of kinds){
+    const matches=field.property.options.filter(option=>option?.name===kind);
+    if(matches.length!==1||typeof matches[0].id!=='string'||!matches[0].id.trim())return recordIds(binding.table);
+    optionIds.push(matches[0].id);
+  }
+  if(new Set(optionIds).size!==kinds.length)return recordIds(binding.table);
+  try{
+    // Server filtering only narrows candidate IDs; every existing per-record guard still runs.
+    const pages=await Promise.all(optionIds.map(optionId=>recordIds(binding.table,{
+      conjunction:'and',conditions:[{fieldId:field.id,fieldType:FieldType.SingleSelect,operator:'is',value:optionId}]
+    })));
+    return [...new Set(pages.flat())];
+  }catch(e){
+    // Metadata/SDK compatibility failures retain the original complete scan, never a partial list.
+    return recordIds(binding.table);
+  }
+}
 // Bounded parallel reads; all writes remain a single explicit owner click.
 async function readPool(ids,reader){let cursor=0,done=0;const values=new Array(ids.length);await Promise.all(Array.from({length:Math.min(4,ids.length)},async()=>{while(cursor<ids.length){const i=cursor++;values[i]=await reader(ids[i]);done++;if(done%5===0&&!saveBusy)$('status').textContent=`正在核对实际记录 ${done}/${ids.length}…`;}}));return values.filter(Boolean);}
 async function rowWithIdentity(binding,id){const row=await loadRow(binding,id);const actor=await cell(binding,id,'实际经办人',true);return {...row,handlerId:Array.isArray(actor)&&actor.length===1?actor[0].id:null};}
@@ -175,7 +201,7 @@ async function saveSelection(){
   }catch(e){if(dispatched){selectionLocked=true;selectionStatus('暂不能确认保存结果，请回 App 的【整理交接单（测试）】核对，不要重复保存。'+(e.message||''));}else selectionStatus(e.message||String(e));}
   finally{saveBusy=false;renderSelection();}
 }
-async function initialize(){if(saveBusy)return;const mine=++epoch;conceal('正在核对可查看的实际记录…');$('records').hidden=true;$('handoff-selection').hidden=true;groups=[];const binding=await connect();if(mine!==epoch)return;const ids=await recordIds(binding.table);if(mine!==epoch)return;
+async function initialize(){if(saveBusy)return;const mine=++epoch;conceal('正在核对可查看的实际记录…');$('records').hidden=true;$('handoff-selection').hidden=true;groups=[];const binding=await connect();if(mine!==epoch)return;const ids=await printableRecordIds(binding);if(mine!==epoch)return;
 const rows=await readPool(ids,async id=>{if(mine!==epoch)return null;try{await permit(binding,'Record',{tableId:binding.table.id,recordId:id});if(await cell(binding,id,binding.source.status)!==binding.source.completed)return null;if(binding.testEnvironment&&await cell(binding,id,'数据用途')!=='测试')return null;if(binding.sourceType==='business'&&!['归还','借出','领用出库'].includes(await cell(binding,id,'办理类型')))return null;return binding.sourceType==='business'?await rowWithIdentity(binding,id):await loadRow(binding,id);}catch(e){return null;}});
 if(mine!==epoch)return;await prepareSelection(binding,rows,mine);if(mine!==epoch)return;const printable=await printableRows(binding,rows);if(mine!==epoch)return;groups=groupActualRows(printable.rows).sort((a,b)=>Date.parse(b[0].time)-Date.parse(a[0].time));$('records').replaceChildren();for(const [i,items] of groups.entries()){const option=document.createElement('option');option.value=String(i);option.textContent=`${items[0].name}${items.length>1?`等${items.length}项`:''} · ${items[0].kind} · ${new Date(items[0].time).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})}`;$('records').append(option);}$('reload').hidden=false;if(!groups.length){conceal('当前没有已核实、获准打印的实际记录。');return;}$('records').hidden=false;await preview();if(printable.blocked)$('status').textContent+=' 部分交接单未完整核对，已暂缓列出。';}
 async function preview(){const mine=++epoch;conceal('正在重新核对本次记录…');const items=groups[Number($('records').value)];if(!items?.length)throw new Error('请先选择实际记录。');const binding=await connect();if(mine!==epoch)return false;const baseRows=items[0].batchId?await handoffRows(binding,items[0].batchId):[await loadRow(binding,items[0].recordId)];if(!items[0].batchId&&baseRows[0].handoffCount>0)throw new Error('记录已归入交接单，请刷新后选整张单据。');const fresh=[];for(const row of baseRows){fresh.push(await applicationSubmitTime(binding,row));if(mine!==epoch)return false;}const validated=groupActualRows(fresh);if(validated.length!==1||validated[0].length!==items.length)throw new Error('本次记录已变化，请刷新后重新选择。');const approvals=await approvalEvents(binding,[...fresh].sort((a,b)=>Date.parse(a.time)-Date.parse(b.time))[0]);await permit(binding,'Base',null,'printable');if(mine!==epoch)return false;$('paper').innerHTML=renderActualBatch(fresh,{printedAt:new Date().toISOString(),test:binding.testEnvironment,...approvals});$('paper').hidden=false;$('print').disabled=false;$('status').textContent=approvals.notes.length?'实际交接已核对，审批明细暂缺；请先查看纸面说明。':'本次实际记录已核对，可打印或保存PDF。';return mine;}
