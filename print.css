@@ -49,3 +49,6 @@ thead{display:table-header-group}tfoot{display:table-row-group}
 .choice span span{font-size:13px;color:#536071}.choice:has(input:disabled){opacity:.55}#selection-status{overflow-wrap:anywhere}
 .selection-actions{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;padding:8px 0;border-bottom:1px solid #e4e8ef}
 .selection-actions button{min-height:42px;padding:10px 18px;margin:0}.selection-actions p{flex:1;margin:0}
+
+.print-actions{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;padding:8px 0;border-bottom:1px solid #e4e8ef}
+#handoff-selection>summary{font-size:15px;font-weight:600;color:#2464d5;cursor:pointer;padding:8px 0;min-height:40px}

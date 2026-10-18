@@ -79,9 +79,9 @@ export function renderActualBatch(items, {printedAt, printer, demo=false, test=f
   const cells = metaRows.map(entries => `<tr>${entries.map(([k,v]) => `<th>${escape(k)}</th><td${entries.length===1?' colspan="3"':''}>${escape(humanTime(v))}</td>`).join('')}</tr>`).join('');
   const totals = new Map();
   const blocks = items.map((row,index) => {
-    const total = (totals.get(row.unit || `未登记单位的物品 ${index+1}`) || 0) + row.quantity;
+    const total = (totals.get(row.unit || `未登记单位：${row.name}`) || 0) + row.quantity;
     if (!Number.isSafeInteger(total)) throw new Error('实际数量汇总超出可精确表示范围。');
-    totals.set(row.unit || `未登记单位的物品 ${index+1}`, total);
+    totals.set(row.unit || `未登记单位：${row.name}`, total);
     const details = [[timeLabel,row.time],['实物状况',row.condition],['实际经办人',row.handler]];
     if (row.kind === '实际借出') details.push(['预计归还日期',row.expectedReturn]);
     if (row.note) details.push(['说明',row.note]);
@@ -95,6 +95,6 @@ export function renderActualBatch(items, {printedAt, printer, demo=false, test=f
     return event;
   }).sort((a,b)=>Date.parse(a.time)-Date.parse(b.time));
   const label=demo?'排版演示 · 人员、物品和交接均为合成样例，非业务证据':test||items.some(x=>x.purposeLabel==='测试')?'测试记录 · 虚拟验收，非正式交接凭证':'';
-  const totalText=[...totals].map(([unit,q])=>unit.startsWith('未登记单位的物品 ')?`${escape(unit)}：${q}`:`${q}${escape(unit)}`).join('；');
+  const totalText=[...totals].map(([unit,q])=>unit.startsWith('未登记单位：')?`${escape(unit.slice('未登记单位：'.length))}：${q}`:`${q}${escape(unit)}`).join('；');
   return `${label?`<p class="demo">${escape(label)}</p>`:''}<header class="document-heading"><h1>${escape(heading)}<small>${escape(title)}</small></h1><p class="print-meta">${printer?`打印人员：${escape(printer)}　`:''}打印时间：${escape(humanTime(printedAt))}</p></header><table class="meta"><colgroup><col style="width:17%"><col style="width:33%"><col style="width:17%"><col style="width:33%"></colgroup><tbody>${cells}</tbody></table><table class="items"><colgroup><col style="width:5%"><col style="width:17%"><col style="width:33%"><col style="width:17%"><col style="width:14%"><col style="width:14%"></colgroup><thead><tr><th colspan="6" class="section-heading">物品及本次实际交接</th></tr></thead>${blocks}<tfoot><tr><th colspan="4">${escape(quantityLabel)}</th><td colspan="2">${totalText}</td></tr></tfoot></table>${history.length?`<table class="events"><colgroup><col style="width:20%"><col style="width:80%"></colgroup><thead><tr><th colspan="2" class="section-heading">审批与办理记录</th></tr></thead><tbody>${history.map(x=>`<tr><th>${escape(x.action)}</th><td><span class="event-actor">${escape(x.actor)}</span><span class="event-result">${escape(x.result)}</span><time>${escape(humanTime(x.time))}</time></td></tr>`).join('')}</tbody></table>`:''}${notes.map(n=>`<p class="foot">${escape(n)}</p>`).join('')}`;
 }
