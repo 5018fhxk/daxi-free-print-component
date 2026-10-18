@@ -1,5 +1,5 @@
 // Only verified source facts enter this renderer; no application quantity is counted as stock.
-import {layouts as kinds} from './layouts.mjs?v=21';
+import {layouts as kinds} from './layouts.mjs?v=22';
 const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const stockKinds=['实际入库','实际借出','归还实收','耗材领用','工位回仓','工位转移','工位检修'];
 const humanTime=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(v)&&Number.isFinite(Date.parse(v))?new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(v)):v;
@@ -42,10 +42,10 @@ export function renderActualBatch(items,{printedAt,printer,demo=false,test=false
   const text=details.filter(([,v])=>v!==null&&v!==undefined&&v!=='').map(([k,v])=>`<span class="item-fact"><span class="fact-label">${escape(k)}：</span>${escape(humanTime(v))}</span>`).join('');
   const identity=[['型号',row.model],['识别信息',row.identity]].filter(([,v])=>v).map(([k,v])=>`<span class="item-identity">${escape(k)}：${escape(v)}</span>`).join('');
   const qtyLabel=row.kind==='未交取消'?'取消数量':stockKinds.includes(row.kind)||row.kind==='出库失败'?'实际数量':'涉及数量';
-  const qty=row.quantity===null?'未单独记录':String(row.quantity)+escape(row.unit);
+  const qty=row.quantity===null?'未单独记录':String(row.quantity)+escape(row.unit||'（单位未登记）');
   return `<tbody class="item"><tr class="item-main"><td class="item-index" rowspan="2">${index+1}</td><td colspan="3"><strong class="name">${escape(row.name)}</strong>${identity}</td><th class="quantity-label">${qtyLabel}</th><td class="quantity">${qty}</td></tr><tr class="item-detail"><td colspan="5">${text}</td></tr></tbody>`;
  }).join('');
- const totalText=hasQuantity?[...totals].map(([u,q])=>u.startsWith('未登记单位：')?`${escape(u.slice(6))}：${q}`:`${q}${escape(u)}`).join('；'):'本记录不计重复出入库数量';
+ const totalText=hasQuantity?[...totals].map(([u,q])=>u.startsWith('未登记单位：')?`${escape(u.slice(6))}：${q}（单位未登记）`:`${q}${escape(u)}`).join('；'):'本记录不计重复出入库数量';
  // Only actual warehouse handling facts remain; never fetch or render the multilevel approval history.
  const wh=new Map();for(const row of items){const key=JSON.stringify([row.handler,row.kind]);if(!wh.has(key))wh.set(key,[]);wh.get(key).push(row.time);}
  const history=[...(first.approver?[`<tr><th>仓管审核</th><td><strong>${escape(first.approver)}</strong>　已审核</td></tr>`]:[]),...[...wh].map(([key,times])=>{const [actor,kind]=JSON.parse(key);times.sort((a,b)=>Date.parse(a)-Date.parse(b));const period=times[0]===times.at(-1)?humanTime(times[0]):humanTime(times[0])+' 至 '+humanTime(times.at(-1));return `<tr><th>${escape(kind)}</th><td><strong>${escape(actor)}</strong>　${escape(period)}</td></tr>`;})].join('');
