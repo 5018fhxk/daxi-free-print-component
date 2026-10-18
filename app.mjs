@@ -4,6 +4,7 @@ import {groupActualRows,renderActualBatch} from './batch.mjs?v=15';
 const $=id=>document.getElementById(id);
 let epoch=0,groups=[],busy=false,saveBusy=false,selectionLocked=false,selectionBinding=null,candidates=[],selectionUser="";
 const selected=new Set();
+let viewedSource=null;
 function conceal(text){$('paper').hidden=true;$('paper').replaceChildren();$('print').disabled=true;$('status').textContent=text;}
 function fail(e){conceal(e.message||String(e));}
 async function permit(binding,entity,param,type='visible'){if(!await binding.context.base.getPermission({entity,...(param?{param}:{}),type}))throw new Error('当前账号没有查看或打印所需的权限。');}
@@ -35,7 +36,32 @@ async function loadRow(binding,id){
   });
   return sourceRow(binding.sourceType,id,cells);
 }
-async function connect(){const config=await dashboard.getConfig();const saved=config.customConfig;const sourceType=saved?.sourceType||'business',source=sourceConfigs[sourceType];if(!source)throw new Error('打印记录来源尚未配置。');if(!saved?.baseToken||!saved?.tableId)throw new Error('先由搭建人在组件设置中连接办理记录。');await dashboard.getData();const context=await workspace.getBitable(saved.baseToken);if(!context)throw new Error('应用没有授权此数据源。');const table=await context.base.getTableById(saved.tableId);const binding={context,table};await permit(binding,'Base',null,'printable');const meta=await table.getFieldMetaList();const fields=Object.fromEntries(meta.map(f=>[f.name,f.id]));if(source.required.some(n=>!fields[n]))throw new Error('当前表缺少实际办理所需字段。');return {...binding,fields,meta,sourceType,source,approvalTableId:saved.approvalTableId,handoffTableId:saved.handoffTableId,handoffInputTableId:saved.handoffInputTableId,handoffInputTableName:saved.handoffInputTableName,testEnvironment:saved.testEnvironment!==false};}
+async function connect(){
+  const config=await dashboard.getConfig(),saved=config.customConfig;
+  const configuredType=saved?.sourceType||'business',sourceType=viewedSource||configuredType,source=sourceConfigs[sourceType];
+  if(!source||!sourceConfigs[configuredType])throw new Error('打印记录来源尚未配置。');
+  if(!saved?.baseToken||!saved?.tableId)throw new Error('先由搭建人在组件设置中连接办理记录。');
+  await dashboard.getData();
+  const context=await workspace.getBitable(saved.baseToken);if(!context)throw new Error('应用没有授权此数据源。');
+  let tableId=saved.tableId;
+  if(sourceType!==configuredType){
+    // Only existing named record sources in the same configured Base; never another Base.
+    const matches=(await context.base.getTableMetaList()).filter(t=>t.name===source.tableName);
+    if(matches.length!==1)throw new Error('当前应用没有唯一的'+source.tableName+'数据源。');
+    tableId=matches[0].id;
+  }
+  const table=await context.base.getTableById(tableId),binding={context,table};
+  await permit(binding,'Base',null,'printable');
+  const meta=await table.getFieldMetaList(),fields=Object.fromEntries(meta.map(f=>[f.name,f.id]));
+  if(source.required.some(n=>!fields[n]))throw new Error('当前表缺少实际办理所需字段。');
+  $('view-source').value=sourceType;
+  return {...binding,fields,meta,sourceType,source,
+    approvalTableId:sourceType==='business'?saved.approvalTableId:undefined,
+    handoffTableId:sourceType==='business'?saved.handoffTableId:undefined,
+    handoffInputTableId:sourceType==='business'?saved.handoffInputTableId:undefined,
+    handoffInputTableName:sourceType==='business'?saved.handoffInputTableName:undefined,
+    testEnvironment:saved.testEnvironment!==false};
+}
 async function handoffRows(binding,id){
   if(!binding.handoffTableId)throw new Error('此记录已归入交接单，请搭建人重新保存打印组件配置。');
   const table=await binding.context.base.getTableById(binding.handoffTableId),fields=Object.fromEntries((await table.getFieldMetaList()).map(f=>[f.name,f.id]));
@@ -74,7 +100,7 @@ async function applicationSubmitTime(binding,row){
   }catch(e){return row;} // No permission or unavailable history: omit, never invent an application time.
 }
 async function approvalEvents(binding,row){
-  if(binding.sourceType!=='business')return {events:[],notes:[]};
+  if(binding.sourceType!=='business')return {events:row.submitter&&row.requestTime?[{action:'提交申请',actor:row.submitter,time:row.requestTime,result:'已提交'}]:[],notes:[]};
   const unavailable={events:[],notes:['本次审批明细未能完整核对，此页仅列已核实的实际交接。']};
   if(!Number.isSafeInteger(row.requestVersion)||row.requestVersion<1)return unavailable;
   try{
@@ -218,3 +244,5 @@ $('configure').onclick=async()=>{if(busy)return;busy=true;try{const baseToken=$(
 $('save-selection').onclick=saveSelection;
 $('reload').onclick=()=>initialize().catch(fail);$('records').onchange=()=>preview().catch(fail);$('print').onclick=async()=>{if(busy)return;busy=true;try{const current=await preview();await document.fonts.ready;if(current&&current===epoch&&!$('paper').hidden)window.print();}catch(e){fail(e);}finally{busy=false;}};
 try{if([DashboardState.Create,DashboardState.Config].includes(dashboard.state))await setup();else await initialize();dashboard.onConfigChange(()=>{if(!saveBusy)initialize().catch(fail);});dashboard.onDataChange(()=>{if(!saveBusy)initialize().catch(fail);});await dashboard.setRendered();}catch(e){fail(e);}
+
+$('view-source').onchange=()=>{if(busy||saveBusy){$('view-source').value=viewedSource||'business';return;}viewedSource=$('view-source').value;initialize().catch(fail);};
