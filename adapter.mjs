@@ -28,7 +28,7 @@ export function actualRow(recordId, cells) {
 
 export const sourceConfigs = Object.freeze({
   business:{tableName:'业务办理记录',label:'实际出入库记录',required:['办理物品','办理状态','业务类型','办理类型','实际经办人','确认数量','已入账数量','关联申请记录ID','实际发生时间','确认时间','归还时间'],optional:['申请提交版本','申请人','申请部门','实物状况','办理说明','已归入交接单数（后台）','实际交接单ID（后台）','原归还期限','数据用途','实际单位'],raw:['已归入交接单数（后台）','申请提交版本','确认数量','已入账数量','归还时间','确认时间','实际发生时间','原归还期限'],status:'办理状态',completed:'已确认'},
-  workstation:{tableName:'工位设备调整',label:'工位回仓与转移记录',required:['物品名称','处理状态','办理事项','设备件数（后台）','实际办理人','实际发生时间','实际提交人（系统）','提交时间（系统）','交接状况（系统）'],optional:['申请人','申请说明','原工位','目标工位','交接说明（系统）','原责任人','审核目标工位（后台）','审核目标责任人（后台）','数据用途'],raw:['设备件数（后台）','实际发生时间','提交时间（系统）'],status:'处理状态',completed:'已完成'},
+  workstation:{tableName:'工位设备调整',label:'工位回仓与转移记录',required:['物品名称','处理状态','办理事项','设备件数（后台）','实际办理人','实际发生时间','实际提交人（系统）','提交时间（系统）','交接状况（系统）'],optional:['申请人','申请说明','原工位','目标工位','交接说明（系统）','原责任人','审核目标工位（后台）','审核目标责任人（后台）','数据用途','审核人'],raw:['设备件数（后台）','实际发生时间','提交时间（系统）'],status:'处理状态',completed:'已完成'},
   repair:{tableName:'工位设备调整',label:'工位设备检修记录',required:['物品名称','处理状态','办理事项','设备件数（后台）','检修状态（后台）','实际检修结论（系统）','检修办理人','检修时间','实际检修说明（系统）','实际提交人（系统）','提交时间（系统）'],optional:['申请人','申请说明','原工位','交接状况（系统）','数据用途'],raw:['设备件数（后台）','检修时间','提交时间（系统）'],status:'检修状态（后台）',completed:'已完成'}
 });
 function stationFacts(recordId,cells){
@@ -50,7 +50,8 @@ export function workstationRow(recordId,cells){
   const toStation=kind==='工位转移'?str(cells['审核目标工位（后台）']):'';
   const toResponsible=kind==='工位转移'?str(cells['审核目标责任人（后台）']):'';
   if(kind==='工位转移'&&!toStation)throw new Error('工位转移缺少实际目标工位。');
-  return {...row,kind,handler,time:timeISO(cells['实际发生时间']),toStation,toResponsible,condition:str(cells['交接状况（系统）']),note:str(cells['交接说明（系统）'])};
+  const approver=str(cells['审核人']);if(!approver||/多维表格助手/.test(approver))throw new Error('工位记录缺少已保存的实际审核人。');
+  return {...row,kind,handler,approver,time:timeISO(cells['实际发生时间']),toStation,toResponsible,condition:str(cells['交接状况（系统）']),note:str(cells['交接说明（系统）'])};
 }
 export function repairRow(recordId,cells){
   const row=stationFacts(recordId,cells),result=str(cells['实际检修结论（系统）']),handler=str(cells['检修办理人']),note=str(cells['实际检修说明（系统）']);

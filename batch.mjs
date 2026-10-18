@@ -47,7 +47,7 @@ export function groupActualRows(rows) {
   for (const items of groups.values()) {
     if(items[0].batchId){const ids=items.map(r=>r.recordId).sort();if(items.some(r=>!Array.isArray(r.handoffMemberIds)||JSON.stringify([...r.handoffMemberIds].sort())!==JSON.stringify(ids)))throw new Error('本次交接物品未全部取得，不能打印缺项单据。');}
     else if(items.some(r=>r.time!==items[0].time))throw new Error('历史实际时间不一致。');
-    for (const name of ['handler','applicant','agent','department','requestTime','purpose','fromStation','toStation','fromResponsible','toResponsible']) {
+    for (const name of ['handler','applicant','agent','department','requestTime','purpose','approver','fromStation','toStation','fromResponsible','toResponsible']) {
       if (items.some(x => (x[name] ?? '') !== (items[0][name] ?? ''))) throw new Error(`同次交接的${name}不一致，请先核对来源。`);
     }
   }
@@ -63,7 +63,7 @@ export function renderActualBatch(items, {printedAt, printer, demo=false, test=f
   const heading = first.name + (items.length > 1 ? `等${items.length}项` : '');
   const times=items.map(r=>r.time).sort((a,b)=>Date.parse(a)-Date.parse(b));
   const period=times[0]===times.at(-1)?first.time:`${humanTime(times[0])} 至 ${humanTime(times.at(-1))}`;
-  const info = [['申请人',first.applicant],['所属部门',first.department],['申请时间',first.requestTime],['用途',first.purpose],[timeLabel,period],['实际经办人',first.handler],['代领人',first.agent],['原工位',first.fromStation],['原责任人',first.fromResponsible],['新工位',first.toStation],['新责任人',first.toResponsible]];
+  const info = [['申请人',first.applicant],['所属部门',first.department],['申请时间',first.requestTime],['用途',first.purpose],[timeLabel,period],['实际经办人',first.handler],['审核人',first.approver],['代领人',first.agent],['原工位',first.fromStation],['原责任人',first.fromResponsible],['新工位',first.toStation],['新责任人',first.toResponsible]];
   // 共享信息横向排版；长用途独占一行，避免挤压日期及人员。
   const shared = info.filter(([,v]) => v), metaRows = [];
   let pending = null;
