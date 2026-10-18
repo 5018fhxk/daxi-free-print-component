@@ -1,5 +1,5 @@
 // Only verified source facts enter this renderer; no application quantity is counted as stock.
-import {layouts as kinds} from './layouts.mjs?v=22';
+import {layouts as kinds} from './layouts.mjs?v=23';
 const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const stockKinds=['实际入库','实际借出','归还实收','耗材领用','工位回仓','工位转移','工位检修'];
 const humanTime=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(v)&&Number.isFinite(Date.parse(v))?new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(v)):v;
