@@ -74,7 +74,10 @@ export function verifyHandoff(headId,cells,rows){
   const n=num(cells['冻结记录数（后台）']);
   if(!Number.isSafeInteger(n)||n<1||new Set(ids).size!==n||ids.length!==n||num(cells['所选记录数（后台）'])!==n||num(cells['已选记录的交接归属数（后台）'])!==n||!equal(ids,selected)||!equal(ids,rows.map(r=>r.recordId)))throw new Error('交接单成员不完整或重复，不能漏项打印。');
   const link=cells['本次实际记录'];if(!link?.recordIds||!equal(ids,link.recordIds))throw new Error('已封存成员与当前所选记录不一致。');
-  for(const [a,b] of [['冻结申请ID（后台）','申请记录ID（后台）'],['冻结申请版本（后台）','申请版本（后台）'],['冻结业务类型（后台）','业务类型（后台）'],['冻结办理类型（后台）','办理类型（后台）']])if(str(cells[a])!==str(cells[b]))throw new Error('交接单范围已变化，请搭建人核对。');
+  for(const [a,b] of [['冻结申请ID（后台）','申请记录ID（后台）'],['冻结业务类型（后台）','业务类型（后台）'],['冻结办理类型（后台）','办理类型（后台）']])if(str(cells[a])!==str(cells[b]))throw new Error('交接单范围已变化，请搭建人核对。');
+  // Formula display formatting (1 / 1.0) must not change an integer version's identity.
+  const frozenVersion=num(cells['冻结申请版本（后台）']),selectedVersion=num(cells['申请版本（后台）']);
+  if(!Number.isSafeInteger(frozenVersion)||frozenVersion<1||!Number.isSafeInteger(selectedVersion)||selectedVersion!==frozenVersion)throw new Error('交接单申请版本已变化，请搭建人核对。');
   const requestId=str(cells['冻结申请ID（后台）']),version=num(cells['冻结申请版本（后台）']),category=str(cells['冻结业务类型（后台）']),kind=({'借出':'实际借出','归还':'归还实收','领用出库':'耗材领用'})[str(cells['冻结办理类型（后台）'])];
   if(!requestId||!Number.isSafeInteger(version)||version<1||!kind||!str(cells['实际整理人']))throw new Error('交接单缺少核实范围或实际整理人。');timeISO(cells['整理时间']);
   if(rows.some(r=>r.purposeLabel!=='测试'||r.requestId!==requestId||r.requestVersion!==version||r.category!==category||r.kind!==kind||r.handler!==rows[0].handler||r.handoffCount!==1||r.handoffIds?.length!==1||r.handoffIds[0]!==headId))throw new Error('原记录与交接单不符，或已重复归单。');
