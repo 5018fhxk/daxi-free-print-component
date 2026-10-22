@@ -1,7 +1,7 @@
 // Only verified source facts enter this renderer; no application quantity is counted as stock.
-import {layouts as kinds} from './layouts.mjs?v=23';
+import {layouts as kinds} from './layouts.mjs?v=24';
 const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const stockKinds=['实际入库','实际借出','归还实收','耗材领用','工位回仓','工位转移','工位检修'];
+const stockKinds=['实际入库','找回入库','实际借出','归还实收','耗材领用','工位回仓','工位转移','工位检修'];
 const humanTime=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(v)&&Number.isFinite(Date.parse(v))?new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(v)):v;
 const required=(v,label)=>{if(typeof v!=='string'||!v.trim())throw new Error('缺少'+label+'，不能猜测打印。');return v;};
 const actualTime=(v,label)=>{required(v,label);if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(v)||!Number.isFinite(Date.parse(v)))throw new Error(label+'须来自已保存的实际时间。');return v;};
@@ -27,7 +27,7 @@ export function groupActualRows(rows){
 }
 export function renderActualBatch(items,{printedAt,printer,demo=false,test=false,notes=[]}={}){
  if(!items?.length)throw new Error('本次没有可打印记录。');const groups=groupActualRows(items);if(groups.length!==1)throw new Error('请按同一类别、同一申请、同次交接分别打印。');actualTime(printedAt,'打印时间');
- const first=items[0],[genericTitle,timeLabel,quantityLabel]=kinds[first.kind],title=['实际借出','归还实收','实际入库'].includes(first.kind)?(first.category||'物品')+genericTitle:first.kind==='耗材领用'?'消耗品领用表':genericTitle;
+ const first=items[0],[genericTitle,timeLabel,quantityLabel]=kinds[first.kind],title=['实际借出','归还实收','实际入库','找回入库','损坏报备'].includes(first.kind)?(first.category||'物品')+genericTitle:first.kind==='耗材领用'?'消耗品领用表':genericTitle;
  const heading=first.name+(items.length>1?`等${items.length}项`:'');
  const application=first.applicationInfo||[],has=(label)=>application.some(([k])=>k===label);
  const info=[['申请人',first.applicant],['所属部门',first.department],['申请时间',first.requestTime],...application,...(!has('用途')&&!has('领用用途')?[['用途',first.purpose]]:[]),['代领人',first.agent],['原工位',first.fromStation],['原责任人',first.fromResponsible],['新工位',first.toStation],['新责任人',first.toResponsible],['原归还期限',first.oldReturn],['生效归还期限',first.newReturn]].filter(([,v])=>v!==null&&v!==undefined&&v!=='');

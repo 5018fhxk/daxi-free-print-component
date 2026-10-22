@@ -1,6 +1,6 @@
 import {workspace,dashboard,DashboardState,SourceType,FieldType} from './vendor/sdk.mjs';
-import {sourceRow,sourceConfigs,applicationInputs,businessActions,timeISO,handoffFields,verifyHandoff,selectionKey,verifySelection,selectionSnapshot,sameMembers} from './adapter.mjs?v=23';
-import {groupActualRows,renderActualBatch} from './batch.mjs?v=23';
+import {sourceRow,sourceConfigs,applicationInputs,businessActions,timeISO,handoffFields,verifyHandoff,selectionKey,verifySelection,selectionSnapshot,sameMembers} from './adapter.mjs?v=24';
+import {groupActualRows,renderActualBatch} from './batch.mjs?v=24';
 const $=id=>document.getElementById(id);
 let epoch=0,groups=[],busy=false,saveBusy=false,selectionLocked=false,selectionBinding=null,candidates=[],selectionUser="";
 const selected=new Set();
@@ -215,7 +215,7 @@ if(sourceType==='business')for(const [category,id]of Object.entries(applicationT
  const extra={baseToken,tableId:id,dataRange:{type:SourceType.ALL},groups:[{fieldId:field.id}],series:'COUNTA'};
  await dashboard.getPreviewData(extra);dataConditions.push(extra);
 }
-if(!await dashboard.saveConfig({dataConditions,customConfig:{baseToken,tableId:chosen[0].id,sourceType,approvalTableId,handoffTableId,handoffInputTableId,handoffInputTableName:handoffInputTableId?'交接物品选择（测试）':undefined,sourceTableIds,applicationTables,version:23,testEnvironment:true}}))throw new Error('配置未保存。');$('status').textContent='已保存，返回浏览页查看实际记录。';}catch(e){fail(e);}finally{busy=false;}};
+if(!await dashboard.saveConfig({dataConditions,customConfig:{baseToken,tableId:chosen[0].id,sourceType,approvalTableId,handoffTableId,handoffInputTableId,handoffInputTableName:handoffInputTableId?'交接物品选择（测试）':undefined,sourceTableIds,applicationTables,version:24,testEnvironment:true}}))throw new Error('配置未保存。');$('status').textContent='已保存，返回浏览页查看实际记录。';}catch(e){fail(e);}finally{busy=false;}};
 $('save-selection').onclick=saveSelection;
 $('reload').onclick=()=>initialize().catch(fail);$('records').onchange=()=>preview().catch(fail);$('print').onclick=async()=>{if(busy)return;busy=true;try{const current=await preview();await document.fonts.ready;if(current&&current===epoch&&!$('paper').hidden)window.print();}catch(e){fail(e);}finally{busy=false;}};
 $('view-source').onchange=()=>{if(busy||saveBusy){$('view-source').value=sourceValue();return;}const [type,category]=$('view-source').value.split(':');viewedSource=type;if(type==='business')viewedCategory=category;initialize().catch(fail);};

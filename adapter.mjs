@@ -11,16 +11,16 @@ export const applicationInputs=Object.freeze({
   '印章':{tableName:'印章申领入口',fields:[['印章名称','印章名称'],['预计归还','申请预计归还','date'],['用印文件','用印文件'],['用途','用途'],['备注','备注']]},
   '消耗品':{tableName:'消耗品申领入口',fields:[['物品名称','物品名称'],['型号','型号'],['数量','申请数量','number'],['申领备注','领用用途']]}
 });
-export const businessActions=Object.freeze(['入库','借出','归还','领用出库','延期','取消未交部分','损坏','丢失','异常结案']);
+export const businessActions=Object.freeze(['入库','借出','归还','领用出库','延期','取消未交部分','损坏','损坏报备','丢失','找回入库','异常结案']);
 export function optionalNumber(v,label){if(v===null||v===undefined||v==='')return null;const n=num(v);if(!Number.isFinite(n)||n<0)throw new Error(label+'数值未核对。');return n;}
 export function actualRow(recordId,cells) {
   const category=str(cells['业务类型']),action=str(cells['办理类型']),status=str(cells['办理状态']);
   const failed=['失败','已退回'].includes(status)&&['借出','领用出库'].includes(action);
   if(status!=='已确认'&&!failed)throw new Error('只打印已完成的实际办理或已记录的出库失败。');
-  const kind=failed?'出库失败':({'入库':'实际入库','归还':'归还实收','借出':'实际借出','领用出库':'耗材领用','延期':'延期生效','取消未交部分':'未交取消','损坏':'异常处理','丢失':'丢失结案','异常结案':'异常处理'})[action];
+  const kind=failed?'出库失败':({'入库':'实际入库','归还':'归还实收','借出':'实际借出','领用出库':'耗材领用','延期':'延期生效','取消未交部分':'未交取消','损坏':'异常处理','损坏报备':'损坏报备','丢失':'丢失结案','找回入库':'找回入库','异常结案':'异常处理'})[action];
   if(!kind)throw new Error('此类型尚未接通实际记录打印。');
   const handler=str(cells['实际经办人']);if(!handler||/多维表格助手/.test(handler))throw new Error('这条历史记录缺少已核实的实际经办人。');
-  const stock=['实际入库','归还实收','实际借出','耗材领用'].includes(kind),quantity=failed?0:kind==='未交取消'?optionalNumber(cells['取消数量']??cells['确认数量'],'取消数量'):stock?num(cells['确认数量']):kind==='丢失结案'&&num(cells['已异常结案数量'])>0?optionalNumber(cells['已异常结案数量'],'结案数量'):null;
+  const stock=['实际入库','找回入库','归还实收','实际借出','耗材领用'].includes(kind),quantity=failed?0:kind==='未交取消'?optionalNumber(cells['取消数量']??cells['确认数量'],'取消数量'):stock?num(cells['确认数量']):kind==='损坏报备'?optionalNumber(cells['确认数量'],'报备涉及数量'):kind==='丢失结案'&&num(cells['已异常结案数量'])>0?optionalNumber(cells['已异常结案数量'],'结案数量'):null;
   if(stock&&(!Number.isSafeInteger(quantity)||quantity<=0||num(cells['已入账数量'])!==quantity))throw new Error('实际数量与入账数量未核对一致，请仓管先核对。');
   if(kind==='未交取消'&&(!Number.isSafeInteger(quantity)||quantity<1))throw new Error('取消数量未核对。');
   const name=str(cells['办理物品']),requestId=str(cells['关联申请记录ID'])||(kind==='实际入库'?recordId:'');if(!name||!requestId)throw new Error('缺少物品或来源申请，不能猜测打印。');
